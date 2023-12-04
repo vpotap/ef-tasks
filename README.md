@@ -118,12 +118,12 @@ For the second task, the test environment selected is macOS with Minikube instal
    ```
 
 10. **Delete resources:**
-  ```bash
+   ```bash
    terraform destroy
    ```   
 
 11. **To stop and delete minikube use:**
-  ```bash
+   ```bash
    minikube stop
    minikube delete
    ```
