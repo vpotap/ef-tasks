@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:6.2-alpine
+        command:
+            - redis-server
+            - "/etc/redis/redis.conf"
+        ports:
+        - containerPort: 6379
+        resources:
+          limits:
+            memory: 32Mi
+            cpu: "250m"
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command: 
+             - "redis-cli"
+             - "ping"
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5  
+        volumeMounts:
+        - name: redis-config
+          mountPath: /etc/redis
+      volumes:
+      - name: redis-config
+        configMap:
+          name: redis-config

@@ -1,0 +1,46 @@
+version: '3.9'
+
+services:
+  nginx-service-1:
+    container_name: nginx-service-1
+    image: nginx:1.25.3-alpine
+    ports:
+      - "8081:80"
+    networks:
+      - nginx-net-1
+    command: [nginx, '-g', 'daemon off;']
+    environment:
+      - NGINX_SERVER_NAME=nginx-service-1
+    volumes:
+      - ./nginx-service-1.conf:/etc/nginx/nginx.conf:ro
+
+  nginx-service-2:
+    container_name: nginx-service-2
+    image: nginx:1.25.3-alpine
+    ports:
+      - "8082:80"
+    networks:
+      - nginx-net-2
+    command: [nginx, '-g', 'daemon off;']
+    environment:
+      - NGINX_SERVER_NAME=nginx-service-2
+    volumes:
+      - ./nginx-service-2.conf:/etc/nginx/nginx.conf:ro
+
+  curl-service:
+    container_name: curl-service
+    image: curlimages/curl:8.4.0
+    networks:
+      - nginx-net-1
+      - nginx-net-2
+    command: sleep infinity   
+
+networks:
+  nginx-net-1:
+    driver: bridge
+    #internal: true
+
+  nginx-net-2:
+    driver: bridge
+    #internal: true
+

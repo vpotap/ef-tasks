@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multi-container
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: encryption
+  template:
+    metadata:
+      labels:
+        app: encryption
+    spec:
+    
+      initContainers:
+      - name: init-container
+        image: alpine:3.17
+        command: ["/bin/sh", "-c"]
+        args:
+        - dd if=/dev/urandom of=/shared-data/random_file.txt bs=1024 count=10
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared-data
+
+      containers:
+      - name: encryption-container
+        image: alpine:3.17
+        resources:
+          limits:
+            memory: "32Mi"
+            cpu: "100m"
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          apk --no-cache add openssl
+          ENCRYPTION_KEY=$(cat /secrets/encryption-key)
+          
+          # openssl to handle binary content directly
+          openssl enc -aes-256-cbc -a -k $ENCRYPTION_KEY -pbkdf2 -in /shared-data/random_file.txt -out /shared-data/encrypted_file.enc
+
+          # keep container running
+          sleep infinity   
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared-data
+        - name: secret-volume
+          mountPath: /secrets
+
+      - name: decryption-container
+        image: alpine:3.17
+        resources:
+          limits:
+            memory: "32Mi"
+            cpu: "100m"
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          apk --no-cache add openssl
+          ENCRYPTION_KEY=$(cat /secrets/encryption-key)
+
+           # wait until encrypted_file.enc is created by the encryption-container
+           # since containers run at the same time, wait for the file to exist
+          while [ ! -f /shared-data/encrypted_file.enc ]; do
+            sleep 2
+          done
+
+          # use openssl to handle binary content directly
+          openssl enc -d -aes-256-cbc -a -k $ENCRYPTION_KEY -pbkdf2 -in /shared-data/encrypted_file.enc -out /shared-data/decrypted_file.txt
+
+          # compare original random with decrypted_file if equals
+          diff -q /shared-data/random_file.txt /shared-data/decrypted_file.txt > /dev/null && echo "equals" > /shared-data/equals.txt
+         
+          # keep container running
+          sleep infinity
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared-data
+        - name: secret-volume
+          mountPath: /secrets
+    
+      volumes:
+      - name: shared-data
+        emptyDir: {}
+
+      - name: secret-volume
+        secret:
+          secretName: encryption-secret
